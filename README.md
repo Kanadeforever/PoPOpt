@@ -379,3 +379,7 @@ xinput.lib
 ```
 
 DirectInput Win 键修复通过动态解析和 COM vtable Hook 实现，不需要这些硬依赖。
+
+## 依赖项
+
+- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)
