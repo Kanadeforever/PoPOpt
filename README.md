@@ -1,5 +1,7 @@
 # PoPOpt
 
+中文 | [English](README_EN.md)
+
 ## 介绍
 
 **PoPOpt（PoP Universal Patch）** 是一个面向《Prince of Persia (2008)》PC 版的单文件、32 位、运行时生效的 ASI 补丁。
