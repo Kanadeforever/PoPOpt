@@ -309,7 +309,7 @@ PackedSteamPatchStatusEvery=1000
 - MSVC 使用 `/MT` 静态运行库
 - 未链接 `dinput8.lib`、`dxguid.lib` 或 `xinput.lib`
 
-### 中文文本正常，但没有语音
+### 文本正常，但没有语音
 
 检查以下项目：
 
