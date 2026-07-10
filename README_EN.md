@@ -364,3 +364,7 @@ xinput.lib
 ```
 
 The DirectInput Windows-key fix uses dynamic function resolution and COM vtable hooking, so these hard dependencies are not required.
+
+## Dependencies
+
+- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)
