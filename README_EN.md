@@ -2,6 +2,8 @@
 
 [中文](README.md) | English
 
+> Current development branch: v29 modular. Early text/voice initialization and the integrated TPF loader have been verified in-game.
+
 ## Overview
 
 **PoPOpt (PoP Universal Patch)** is a single-file, 32-bit ASI patch for the PC version of *Prince of Persia (2008)*. It applies its changes at runtime and does not modify the game executable on disk.
@@ -12,7 +14,7 @@ The patch automatically detects and supports:
 - Unpacked Steam builds
 - Original Steam builds protected by SteamStub
 
-Its main features include independent text and voice language selection, voice-pack detection and safe fallback, windowed and borderless modes, high-DPI awareness, external graphics settings, CPU affinity control, input fixes for windowed modes, configuration validation, logging, and compatibility reports.
+Its main features include independent text and voice language selection, voice-pack detection and safe fallback, windowed and borderless modes, high-DPI awareness, external graphics settings, CPU affinity control, input fixes for windowed modes, configuration validation, logging, and compatibility reports. Version 29 also includes an optional TexMod TPF texture loader for controller prompts and other texture-replacement packages.
 
 > This is an unofficial community patch. Keep a backup of the original game files and use a 32-bit ASI Loader compatible with the game.
 
@@ -32,6 +34,8 @@ Its main features include independent text and voice language selection, voice-p
 - Automatic configuration-file generation, validation, and correction of invalid values.
 - Configurable log levels and a compatibility report.
 - Unicode path support for the configuration file, log, report, and voice-pack detection.
+- Optional built-in TPF texture loading without `TexMod.exe`, `tmldr.dll`, `tmrls.dll`, or registry-based package passing.
+- Modular source layout while still producing a single ASI module.
 
 ## Installation
 
@@ -39,7 +43,8 @@ Its main features include independent text and voice language selection, voice-p
 2. Place `PoP_UniversalPatch.asi` where your ASI Loader can load it.
 3. Place `PoP_UniversalPatch.ini` in the same directory as the ASI file.
 4. Make sure the required `DataPC_StreamedSoundsXXX.forge` files are located in the same directory as the game executable.
-5. Start the game. The patch will detect the executable version, validate the configuration, and apply the appropriate compatibility fixes.
+5. To use texture replacement, place the TPF package in the ASI directory and list it under `[TexturePackages]`.
+6. Start the game. The patch will detect the executable version, validate the configuration, and apply the appropriate compatibility fixes.
 
 If `PoP_UniversalPatch.ini` does not exist, the patch automatically creates a complete UTF-16 default configuration in the ASI directory.
 
@@ -51,6 +56,33 @@ The patch uses the following fixed file names:
 - `PoP_UniversalPatch.ini` — configuration file
 - `PoP_UniversalPatch.log` — runtime log
 - `PoP_CompatibilityReport.txt` — compatibility report
+
+
+## TPF Texture Loader
+
+Version 29 includes a standalone TexMod-compatible TPF module. It reads classic `.tpf` packages and their `texmod.def` files directly, without launching `TexMod.exe` and without passing package lists through `HKCU\SOFTWARE\TexMod`.
+
+```ini
+[TextureLoader]
+Enable=1
+LaterPackageWins=1
+
+[TexturePackages]
+Package1=XBOX.tpf
+Package2=
+Package3=
+```
+
+Behavior:
+
+- Only packages explicitly listed under `[TexturePackages]` are loaded.
+- Relative package paths are resolved from the ASI directory.
+- With `LaterPackageWins=1`, later `PackageN` entries replace earlier definitions that use the same texture hash. Set it to `0` to keep the first definition.
+- Matching uses TexMod-compatible texture hashes only. The replacement image does not have to use the same dimensions as the original texture.
+- The verified game path uses the `top-compact-complement` hash mode. The tested Xbox prompt package matched and replaced all 10 target textures.
+- With `Enable=0`, the module does not parse TPF files, resolve D3DX, or install D3D9 texture hooks.
+
+The texture module resolves an available `d3dx9_*.dll` dynamically to decode replacement images. D3DX is not linked as a hard ASI dependency. If the log reports that no image loader was found, install the Microsoft DirectX End-User Runtimes (June 2010) or provide a compatible D3DX9 DLL with the game.
 
 ## Language IDs and Voice Packs
 
@@ -249,6 +281,8 @@ CompatibilityReport=1
 - `2` — Record normal startup, detection, and patch status information
 - `3` — Detailed debugging, including DataPC, forge, and sound-related file-open tracing
 
+The report also records whether the texture module is enabled, the number of packages and unique hashes loaded, and the number of successful replacements.
+
 When `CompatibilityReport=1`, the patch generates:
 
 ```text
@@ -274,6 +308,20 @@ PackedSteamPatchStatusEvery=1000
 ```
 
 These values control retry behavior for runtime voice patching on SteamStub-protected builds. Most users should leave them unchanged.
+
+
+## Modular Architecture
+
+Version 29 separates the implementation into functional modules while still producing one `PoP_UniversalPatch.asi` file:
+
+- `Core` — paths, Unicode INI handling, logging, PE utilities, unified hook management, and module lifecycle.
+- `SettingsRegistry` — text-language and game registry-setting mapping.
+- `Voice` — voice-pack detection, fallback, transactional patching, and SteamStub runtime handling.
+- `Display`, `DPI`, `Performance`, and `Input` — isolated display, scaling, CPU, and input features.
+- `TextureLoader` — TPF parsing, package priority, D3D9 hooks, hash matching, and replacement-texture lifetime.
+- `Diagnostics` — unified compatibility reporting.
+
+Text and voice initialization run early because they are required during game startup. Other modules initialize afterward. Main-executable IAT hooks are installed through one hook manager to prevent modules from overwriting each other.
 
 ## Safety Design
 
@@ -332,6 +380,28 @@ Confirm that:
 
 If the issue remains, test again with `LogLevel=2` or `3`.
 
+
+### A TPF Package Loads, but No Texture Is Replaced
+
+Check the following:
+
+1. `[TextureLoader] Enable=1`.
+2. The package is listed as `Package1`, `Package2`, and so on, and the path is valid relative to the ASI directory.
+3. The log contains `Texture package database ready` and `Direct3D 9 texture hooks installed`.
+4. The package uses classic TexMod hash definitions and contains a valid `texmod.def`.
+5. Look for `Texture replaced: hash=...` messages in the log.
+
+For diagnostics, temporarily use:
+
+```ini
+[Debug]
+LogLevel=3
+TextureLogUnmatched=1
+TextureMaxUnmatchedLogs=256
+```
+
+Return `TextureLogUnmatched` to `0` for normal use to avoid a large unmatched-texture log.
+
 ### Configuration Values Were Rewritten
 
 This is the configuration-validation feature. Invalid or out-of-range values are corrected and written back to `PoP_UniversalPatch.ini`. When `LogLevel` is at least `1`, the corrections are recorded in the log.
@@ -347,15 +417,22 @@ Include the following files and information with a bug report:
 
 ## Building
 
-The ASI must be compiled as 32-bit. A static runtime is recommended.
+The ASI must be compiled as 32-bit, with the C/C++ runtime and zlib linked statically. The texture module uses zlib to read TPF/ZIP data, but the released ASI should not require `zlib1.dll` or MinGW runtime DLLs.
 
 MSVC:
 
 ```bat
-cl /LD /O2 /EHsc /MT PoP_UniversalPatch.cpp /link /OUT:PoP_UniversalPatch.asi /MACHINE:X86 user32.lib advapi32.lib
+cmake --preset msvc-x86-release
+cmake --build --preset msvc-x86-release
 ```
 
-Do not add the following libraries:
+For MSVC, install the static 32-bit zlib triplet with vcpkg:
+
+```bat
+vcpkg install zlib:x86-windows-static
+```
+
+Do not add hard links to the following libraries:
 
 ```text
 dinput8.lib
@@ -363,8 +440,17 @@ dxguid.lib
 xinput.lib
 ```
 
-The DirectInput Windows-key fix uses dynamic function resolution and COM vtable hooking, so these hard dependencies are not required.
+The DirectInput Windows-key fix uses dynamic function resolution and COM vtable hooking, so these hard dependencies are not required. D3DX9 is resolved dynamically as well. After building, use `dumpbin /dependents` or `objdump -p` to confirm that the ASI does not depend on `zlib1.dll`, `libwinpthread-1.dll`, `libstdc++-6.dll`, or `libgcc_s_*.dll`.
 
 ## Dependencies
 
-- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)
+Runtime:
+
+- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader), or another compatible 32-bit ASI loader
+- An available D3DX9 DLL when the texture module is enabled, normally supplied by the Microsoft DirectX End-User Runtimes (June 2010)
+
+Build-time:
+
+- CMake
+- A 32-bit MSVC or MinGW-w64 toolchain
+- Static 32-bit zlib

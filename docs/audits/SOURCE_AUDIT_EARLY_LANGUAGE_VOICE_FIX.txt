@@ -1,0 +1,18 @@
+通过：DllMain 在 CreateThread 之前调用同步基础初始化
+通过：设置（Settings）早期钩子注册存在
+通过：语音（Voice）早期初始化存在
+通过：语音（Voice）早期钩子注册存在
+通过：语音（Voice）早期补丁存在
+通过：设置（Settings）钩子幂等
+通过：语音（Voice）阶段幂等
+通过：实际的 LNG 拦截日志记录存在
+通过：本地的 AI unknwn 包含被保留
+通过：本地的 AI MinGW SEH 工作区被保留
+通过：本地的 AI MSVC pause 被保留
+通过：过时的已编译 ASI 已移除
+通过：用户测试过的 INI 已单独保留
+通过：括号平衡 src/Main.cpp
+通过：括号平衡 src/modules/SettingsRegistryModule.cpp
+通过：括号平衡 src/modules/VoiceModule.cpp
+
+注意：此环境中未安装 Windows x86 编译器；这是结构/源码审计，而非二进制构建测试。

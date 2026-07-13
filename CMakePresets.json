@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "msvc-x86-release",
+      "displayName": "MSVC x86 Release (static vcpkg)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/msvc-x86",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x86-windows-static"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "msvc-x86-release",
+      "configurePreset": "msvc-x86-release",
+      "configuration": "Release"
+    }
+  ]
+}

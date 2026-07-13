@@ -2,6 +2,8 @@
 
 中文 | [English](README_EN.md)
 
+> 当前开发分支：v29 modular。语言/语音早期初始化和内置 TPF 加载已完成实机验证。
+
 ## 介绍
 
 **PoPOpt（PoP Universal Patch）** 是一个面向《Prince of Persia (2008)》PC 版的单文件、32 位、运行时生效的 ASI 补丁。
@@ -12,7 +14,7 @@
 - Steam 脱壳版
 - Steam 原版 SteamStub 加壳版
 
-主要功能包括文本与语音语言分离、语音包检测和安全回退、窗口与无边框模式、高 DPI 感知、图形设置、CPU affinity、窗口模式输入修复、配置校验、日志和兼容性报告。
+主要功能包括文本与语音语言分离、语音包检测和安全回退、窗口与无边框模式、高 DPI 感知、图形设置、CPU affinity、窗口模式输入修复、配置校验、日志和兼容性报告。v29 还集成了可选的 TexMod TPF 纹理包加载器，可直接加载手柄图标等纹理替换包。
 
 > 这是非官方社区补丁。建议保留原始游戏文件，并使用与游戏匹配的 32 位 ASI Loader。
 
@@ -32,6 +34,8 @@
 - 配置文件自动生成、非法值校验和自动修正。
 - 可调日志等级和兼容性报告。
 - 配置、日志、报告及语音包检测支持 Unicode 路径。
+- 可选的内置 TPF 纹理包加载器，无需 `TexMod.exe`、`tmldr.dll`、`tmrls.dll` 或注册表传参。
+- 模块化源码结构；语言、语音、显示、输入和纹理加载彼此隔离，最终仍输出单个 ASI。
 
 ## 安装
 
@@ -39,7 +43,8 @@
 2. 将 `PoP_UniversalPatch.asi` 放到 ASI Loader 能加载的位置。
 3. 将 `PoP_UniversalPatch.ini` 放在 ASI 同一目录。
 4. 确认所需的 `DataPC_StreamedSoundsXXX.forge` 位于游戏 EXE 所在目录。
-5. 启动游戏。补丁会自动识别发行版、校验配置并应用适配。
+5. 如需纹理替换，将 TPF 文件放在 ASI 所在目录，并在 `[TexturePackages]` 中列出。
+6. 启动游戏。补丁会自动识别发行版、校验配置并应用适配。
 
 如果 `PoP_UniversalPatch.ini` 不存在，补丁会在 ASI 所在目录自动生成一份完整的 UTF-16 默认配置。
 
@@ -51,6 +56,33 @@
 - `PoP_UniversalPatch.ini`：配置文件
 - `PoP_UniversalPatch.log`：运行日志
 - `PoP_CompatibilityReport.txt`：兼容性报告
+
+
+## TPF 纹理包加载器
+
+v29 内置了独立的 TexMod TPF 加载模块。它直接读取经典 TexMod 风格的 `.tpf` 包和其中的 `texmod.def`，不需要启动 `TexMod.exe`，也不使用 `HKCU\SOFTWARE\TexMod` 注册表传参。
+
+```ini
+[TextureLoader]
+Enable=1
+LaterPackageWins=1
+
+[TexturePackages]
+Package1=XBOX.tpf
+Package2=
+Package3=
+```
+
+说明：
+
+- 只有 `[TexturePackages]` 中明确列出的包会被加载。
+- 相对路径以 ASI 所在目录为基准；盘符路径和 UNC 路径会按绝对路径处理。
+- `LaterPackageWins=1` 时，后面的 `PackageN` 会覆盖前面包中相同哈希的纹理；设为 `0` 时保留先加载的定义。
+- 纹理身份只按 TexMod 兼容哈希匹配，不要求原始纹理与替换图片尺寸相同。
+- 当前已在《Prince of Persia (2008)》中验证 `top-compact-complement` 哈希路径；测试用 Xbox 图标包的 10 个纹理均能命中。
+- `Enable=0` 时不会解析 TPF、加载 D3DX 或安装 D3D9 纹理 Hook。
+
+纹理模块会在运行时动态查找 `d3dx9_43.dll` 等 D3DX9 版本来解码图片，不把 D3DX 作为 ASI 的硬链接依赖。若日志提示找不到图像加载器，请安装 Microsoft DirectX End-User Runtimes（June 2010）或确认游戏目录中存在可用的 D3DX9 DLL。
 
 ## 推荐配置：中文文本 + 英文语音
 
@@ -264,6 +296,8 @@ CompatibilityReport=1
 - `2`：记录正常启动、识别与补丁状态，推荐默认
 - `3`：详细调试，包括 DataPC、forge 和声音相关文件打开跟踪
 
+兼容性报告还会记录纹理模块是否启用、成功加载的包数量、唯一哈希数量以及替换计数。
+
 `CompatibilityReport=1` 时会生成：
 
 ```text
@@ -289,6 +323,20 @@ PackedSteamPatchStatusEvery=1000
 ```
 
 这些参数控制 SteamStub 加壳版运行时语音补丁的重试行为。普通用户应保留默认值。
+
+
+## 模块化架构
+
+v29 的源码按功能拆分，但发布产物仍是一个 `PoP_UniversalPatch.asi`：
+
+- `Core`：路径、Unicode INI、日志、PE 工具、统一 Hook 管理和模块生命周期。
+- `SettingsRegistry`：文本语言和游戏注册表设置映射。
+- `Voice`：语音包检测、回退、四点事务补丁和 SteamStub 运行时补丁。
+- `Display`、`DPI`、`Performance`、`Input`：各自管理显示、缩放、CPU 和输入功能。
+- `TextureLoader`：TPF 解析、包优先级、D3D9 Hook、哈希匹配和替换纹理生命周期。
+- `Diagnostics`：统一兼容性报告。
+
+语言和语音属于游戏启动基础功能，会在 ASI 加载早期完成准备；其他模块随后初始化。所有主程序 IAT Hook 由统一管理器安装，避免模块互相覆盖。
 
 ## 安全设计
 
@@ -347,6 +395,28 @@ FallbackLanguage=1
 
 若问题仍然存在，请使用 `LogLevel=2` 或 `3` 重新测试。
 
+
+### TPF 已加载，但纹理没有替换
+
+检查以下项目：
+
+1. `[TextureLoader] Enable=1`。
+2. 包名已写入 `[TexturePackages] Package1` 等条目，且路径相对于 ASI 目录有效。
+3. 日志中出现 `Texture package database ready` 和 `Direct3D 9 texture hooks installed`。
+4. 目标 TPF 使用经典 TexMod 哈希定义，并包含有效的 `texmod.def`。
+5. 日志中是否出现 `Texture replaced: hash=...`。
+
+调试时可暂时设置：
+
+```ini
+[Debug]
+LogLevel=3
+TextureLogUnmatched=1
+TextureMaxUnmatchedLogs=256
+```
+
+正常使用时建议将 `TextureLogUnmatched` 恢复为 `0`，避免产生大量未命中纹理日志。
+
 ### 配置值被自动改写
 
 这是配置校验功能。非法或越界值会自动修正并写回 `PoP_UniversalPatch.ini`；当 `LogLevel` 大于等于 1 时，日志会记录修正内容。
@@ -362,15 +432,22 @@ FallbackLanguage=1
 
 ## 编译
 
-必须编译成 32 位 ASI，推荐使用静态运行库。
+必须编译成 32 位 ASI，并静态链接 C/C++ 运行库和 zlib。纹理模块需要 zlib 读取 TPF/ZIP，但正式 ASI 不应依赖外部 `zlib1.dll` 或 MinGW 运行库 DLL。
 
 MSVC：
 
 ```bat
-cl /LD /O2 /EHsc /MT PoP_UniversalPatch.cpp /link /OUT:PoP_UniversalPatch.asi /MACHINE:X86 user32.lib advapi32.lib
+cmake --preset msvc-x86-release
+cmake --build --preset msvc-x86-release
 ```
 
-不要额外链接：
+使用 MSVC 时可通过 vcpkg 安装静态 32 位 zlib：
+
+```bat
+vcpkg install zlib:x86-windows-static
+```
+
+不要额外硬链接：
 
 ```text
 dinput8.lib
@@ -378,8 +455,17 @@ dxguid.lib
 xinput.lib
 ```
 
-DirectInput Win 键修复通过动态解析和 COM vtable Hook 实现，不需要这些硬依赖。
+DirectInput Win 键修复通过动态解析和 COM vtable Hook 实现，不需要这些硬依赖。D3DX9 同样在运行时动态解析。编译完成后可用 `dumpbin /dependents` 或 `objdump -p` 确认没有 `zlib1.dll`、`libwinpthread-1.dll`、`libstdc++-6.dll` 或 `libgcc_s_*.dll` 依赖。
 
 ## 依赖项
 
-- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)
+运行时：
+
+- [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) 或其他兼容的 32 位 ASI Loader
+- 启用纹理模块时需要可用的 D3DX9 DLL；通常来自 Microsoft DirectX End-User Runtimes（June 2010）
+
+构建时：
+
+- CMake
+- 32 位 MSVC 或 MinGW-w64 工具链
+- 32 位静态 zlib
