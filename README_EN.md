@@ -34,7 +34,7 @@ Its main features include independent text and voice language selection, voice-p
 - Automatic configuration-file generation, validation, and correction of invalid values.
 - Configurable log levels and a compatibility report.
 - Unicode path support for the configuration file, log, report, and voice-pack detection.
-- Optional built-in TPF texture loading without `TexMod.exe`, `tmldr.dll`, `tmrls.dll`, or registry-based package passing.
+- Optional built-in TPF texture loading without `TexMod.exe` or registry-based package passing.
 - Modular source layout while still producing a single ASI module.
 
 ## Installation
